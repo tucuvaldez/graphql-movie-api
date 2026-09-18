@@ -11,26 +11,10 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/movies';
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Schema GraphQL básico
-const typeDefs = `
-  type Query {
-    hello: String
-  }
-`;
-
-const resolvers = {
-  Query: {
-    hello: () => 'Hello, GraphQL!',
-  },
-};
-
-// Iniciar servidor
 async function startServer() {
-  // Conectar MongoDB
   try {
     await mongoose.connect(MONGODB_URI);
     console.log('✅ MongoDB conectado');
@@ -39,7 +23,10 @@ async function startServer() {
     process.exit(1);
   }
 
-  // Crear Apollo Server
+  // Import dinámico para evitar problemas de ES modules
+  const { typeDefs } = await import('./graphql/typeDefs/index.js');
+  const resolvers = (await import('./graphql/resolvers/index.js')).default;
+
   const server = new ApolloServer({
     typeDefs,
     resolvers,
@@ -48,7 +35,6 @@ async function startServer() {
   await server.start();
   app.use('/graphql', expressMiddleware(server));
 
-  // Servidor Express
   app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}/graphql`);
   });
