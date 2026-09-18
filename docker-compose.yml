@@ -4,7 +4,7 @@ services:
     image: mongo:6.0
     container_name: graphql-movie-mongodb
     ports:
-      - "27017:27017"
+      - "27018:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password
@@ -18,11 +18,13 @@ services:
     container_name: graphql-movie-api
     ports:
       - "4000:4000"
+    env_file:
+      - .env
     environment:
-      NODE_ENV: development
-      PORT: 4000
+      # Inside the Docker network, Mongo's host is the service name, not
+      # localhost -- this overrides the MONGODB_URI from .env (which is
+      # meant for running the API with `npm run dev` outside Docker).
       MONGODB_URI: mongodb://admin:password@mongodb:27017/movies?authSource=admin
-      JWT_SECRET: dev-secret-key-change-in-prod
     depends_on:
       - mongodb
     networks:
