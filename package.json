@@ -13,7 +13,8 @@
     "docker:up": "docker-compose up",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed": "tsx src/scripts/seed.ts"
+    "seed": "tsx src/scripts/seed.ts",
+    "smoke-test": "tsx src/scripts/e2e-smoke-test.ts"
   },
   "keywords": [
     "graphql",

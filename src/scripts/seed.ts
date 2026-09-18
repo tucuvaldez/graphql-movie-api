@@ -9,7 +9,7 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/movies
 
 // Fictional catalog entries -- kept deliberately unreal so nobody mistakes
 // this seed data for a real licensed movie dataset.
-const SEED_ADMIN = {
+export const SEED_ADMIN = {
   username: 'admin',
   email: 'admin@example.com',
   password: 'AdminPass123!',
@@ -53,10 +53,14 @@ const SEED_MOVIES = [
   },
 ];
 
-async function seed() {
-  await mongoose.connect(MONGODB_URI);
-  console.log(`Connected to ${MONGODB_URI}`);
-
+/**
+ * Creates the seed ADMIN user and sample movies if they don't already
+ * exist. Assumes mongoose is already connected -- callers (this script's
+ * own `main()`, or the e2e smoke test) own the connection lifecycle so it
+ * can be reused across multiple seed/verify steps instead of reconnecting
+ * each time.
+ */
+export async function ensureSeedData(): Promise<void> {
   const existingAdmin = await UserModel.findOne({ email: SEED_ADMIN.email });
   if (existingAdmin) {
     console.log(`Admin user already exists (${SEED_ADMIN.email}), skipping.`);
@@ -78,12 +82,22 @@ async function seed() {
     await MovieModel.insertMany(SEED_MOVIES);
     console.log(`Seeded ${SEED_MOVIES.length} sample movies.`);
   }
+}
 
+async function main() {
+  await mongoose.connect(MONGODB_URI);
+  console.log(`Connected to ${MONGODB_URI}`);
+  await ensureSeedData();
   await mongoose.disconnect();
   console.log('Done.');
 }
 
-seed().catch((err) => {
-  console.error('Seed failed:', err);
-  process.exit(1);
-});
+// Only auto-run when this file is executed directly (`tsx src/scripts/seed.ts`
+// / `npm run seed`), not when `ensureSeedData`/`SEED_ADMIN` are imported by
+// another script (e.g. the e2e smoke test).
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((err) => {
+    console.error('Seed failed:', err);
+    process.exit(1);
+  });
+}

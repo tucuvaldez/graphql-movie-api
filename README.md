@@ -17,7 +17,7 @@ A GraphQL backend for a movie review platform, built as a portfolio project to d
 
 ## Features
 
-**Schema.** Four core types — `User`, `Movie`, `Review`, `List` — covering registration/auth, a movie catalog with genres/cast, per-movie reviews with a denormalized average rating, and user-curated watchlists (public or private).
+**Schema.** Four core types — `User`, `Movie`, `Review`, `List` — covering registration/auth, a movie catalog with genres/cast, per-movie reviews with a denormalized average rating, and user-curated watchlists (public or private). Two custom scalars, `DateTime` and `EmailAddress`, validate their respective formats at the GraphQL layer rather than leaving it to resolver-level checks.
 
 **Authentication.** `register` / `login` return a short-lived access token and a longer-lived refresh token. `refreshToken` rotates the access token; `logout` invalidates every refresh token issued for that user by bumping a `refreshTokenVersion` counter checked on every refresh. Role-based access control (`USER` / `MODERATOR` / `ADMIN`) gates catalog mutations and moderation actions.
 
