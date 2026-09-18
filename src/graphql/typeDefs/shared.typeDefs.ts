@@ -1,14 +1,14 @@
 import { gql } from 'graphql-tag';
 
 /**
- * Tipos, scalars y enums compartidos entre todos los módulos del schema.
- * Se mergea primero para que el resto de los typeDefs puedan referenciarlo.
+ * Types, scalars and enums shared across all schema modules.
+ * This is merged first so the rest of the typeDefs can reference it.
  */
 export const sharedTypeDefs = gql`
   scalar DateTime
 
   """
-  Info estándar de paginación estilo cursor (Relay-like, simplificada).
+  Standard cursor-style pagination info (Relay-like, simplified).
   """
   type PageInfo {
     hasNextPage: Boolean!
@@ -31,7 +31,7 @@ export const sharedTypeDefs = gql`
   }
 
   """
-  Respuesta genérica para mutations de borrado.
+  Generic response for delete mutations.
   """
   type DeletePayload {
     success: Boolean!
@@ -44,5 +44,14 @@ export const sharedTypeDefs = gql`
 
   type Mutation {
     _noop: Boolean!
+  }
+
+  """
+  Sanity-check for the subscriptions transport (WebSocket via graphql-ws).
+  Emits "true" as soon as it connects -- useful for testing the WS without
+  depending on a real review/movie being involved.
+  """
+  type Subscription {
+    _ping: Boolean!
   }
 `;

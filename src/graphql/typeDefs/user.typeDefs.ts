@@ -27,7 +27,7 @@ export const userTypeDefs = gql`
   }
 
   """
-  Payload de autenticación devuelto por register / login / refreshToken.
+  Authentication payload returned by register / login / refreshToken.
   """
   type AuthPayload {
     accessToken: String!
@@ -54,7 +54,7 @@ export const userTypeDefs = gql`
 
   extend type Query {
     """
-    Usuario autenticado según el JWT presente en el request. null si no hay sesión.
+    Authenticated user according to the JWT present on the request. null if there's no session.
     """
     me: User
 
@@ -72,7 +72,7 @@ export const userTypeDefs = gql`
     updateProfile(input: UpdateProfileInput!): User!
 
     """
-    Solo ADMIN. Cambia el rol de un usuario.
+    ADMIN only. Changes a user's role.
     """
     setUserRole(userId: ID!, role: UserRole!): User!
   }

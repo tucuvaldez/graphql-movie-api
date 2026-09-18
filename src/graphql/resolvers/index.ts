@@ -1,8 +1,8 @@
-import { DateTimeScalar } from './scalars/dateTime.resolver';
-import { userResolvers } from './user.resolvers';
-import { movieResolvers } from './movie.resolvers';
-import { reviewResolvers } from './review.resolvers';
-import { listResolvers } from './list.resolvers';
+import { DateTimeScalar } from './scalars/dateTime.resolver.js';
+import { userResolvers } from './user.resolvers.js';
+import { movieResolvers } from './movie.resolvers.js';
+import { reviewResolvers } from './review.resolvers.js';
+import { listResolvers } from './list.resolvers.js';
 
 const resolvers: any = {
   DateTime: DateTimeScalar,
@@ -21,6 +21,17 @@ const resolvers: any = {
     ...movieResolvers.Mutation,
     ...reviewResolvers.Mutation,
     ...listResolvers.Mutation,
+  },
+
+  Subscription: {
+    _ping: {
+      // eslint-disable-next-line require-yield -- sanity-check placeholder, doesn't need multiple yields
+      subscribe: async function* () {
+        yield { _ping: true };
+      },
+    },
+    ...movieResolvers.Subscription,
+    ...reviewResolvers.Subscription,
   },
 
   User: userResolvers.User,

@@ -21,7 +21,7 @@ const reviewSchema = new Schema<IReview>(
   { timestamps: true },
 );
 
-// Un usuario solo puede dejar una review por película.
+// A user can only leave one review per movie.
 reviewSchema.index({ movie: 1, author: 1 }, { unique: true });
 reviewSchema.index({ movie: 1, createdAt: -1 });
 reviewSchema.index({ author: 1, createdAt: -1 });

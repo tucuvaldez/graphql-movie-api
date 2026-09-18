@@ -1,20 +1,20 @@
 import { GraphQLError } from 'graphql';
 
 export class AuthenticationError extends GraphQLError {
-  constructor(message = 'No autenticado') {
+  constructor(message = 'Not authenticated') {
     super(message, { extensions: { code: 'UNAUTHENTICATED' } });
   }
 }
 
 export class ForbiddenError extends GraphQLError {
-  constructor(message = 'No tenés permisos para esta acción') {
+  constructor(message = "You don't have permission for this action") {
     super(message, { extensions: { code: 'FORBIDDEN' } });
   }
 }
 
 export class NotFoundError extends GraphQLError {
   constructor(entity: string, id: string) {
-    super(`${entity} con id "${id}" no encontrado`, {
+    super(`${entity} with id "${id}" not found`, {
       extensions: { code: 'NOT_FOUND' },
     });
   }
@@ -27,8 +27,8 @@ export class ValidationError extends GraphQLError {
 }
 
 /**
- * Lanza AuthenticationError si no hay usuario en contexto.
- * Devuelve el AuthUser (no-null) para que TS angoste el tipo en el caller.
+ * Throws AuthenticationError if there's no user in context.
+ * Returns the (non-null) AuthUser so TS narrows the type at the call site.
  */
 export function requireAuth<T extends { id: string }>(currentUser: T | null): T {
   if (!currentUser) {

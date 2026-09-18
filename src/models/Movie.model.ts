@@ -1,5 +1,5 @@
 import { Schema, model, type Document, type Types } from 'mongoose';
-import type { Genre } from '../types/context';
+import type { Genre } from '../types/context.js';
 
 export interface ICastMember {
   name: string;
@@ -19,7 +19,7 @@ export interface IMovie extends Document<Types.ObjectId> {
   posterUrl?: string | null;
   backdropUrl?: string | null;
 
-  // Denormalizado para evitar agregaciones en cada query de listado.
+  // Denormalized to avoid aggregations on every listing query.
   ratingSum: number;
   ratingCount: number;
 

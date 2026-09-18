@@ -1,20 +1,20 @@
-import type { GraphQLContext } from '../../types/context';
-import { UserModel, ListModel, ReviewModel, type UserRole } from '../../models';
+import type { GraphQLContext } from '../../types/context.js';
+import { UserModel, type UserRole } from '../../models/index.js';
 import {
   hashPassword,
   comparePassword,
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
-} from '../../utils/auth';
+} from '../../utils/auth.js';
 import {
   AuthenticationError,
   ForbiddenError,
   NotFoundError,
   ValidationError,
   requireAuth,
-} from '../../utils/errors';
-import { buildPageInfo, clampPagination } from '../../utils/pagination';
+} from '../../utils/errors.js';
+import { buildPageInfo, clampPagination } from '../../utils/pagination.js';
 
 interface RegisterInput {
   username: string;
@@ -59,12 +59,12 @@ export const userResolvers = {
       const { username, email, password } = args.input;
 
       if (password.length < 8) {
-        throw new ValidationError('La contraseña debe tener al menos 8 caracteres');
+        throw new ValidationError('Password must be at least 8 characters long');
       }
 
       const existing = await UserModel.findOne({ $or: [{ email }, { username }] });
       if (existing) {
-        throw new ValidationError('Email o username ya en uso');
+        throw new ValidationError('Email or username already in use');
       }
 
       const passwordHash = await hashPassword(password);
@@ -78,12 +78,12 @@ export const userResolvers = {
 
       const user = await UserModel.findOne({ email }).select('+passwordHash');
       if (!user) {
-        throw new AuthenticationError('Credenciales inválidas');
+        throw new AuthenticationError('Invalid credentials');
       }
 
       const valid = await comparePassword(password, user.passwordHash);
       if (!valid) {
-        throw new AuthenticationError('Credenciales inválidas');
+        throw new AuthenticationError('Invalid credentials');
       }
 
       return buildAuthPayload(user.id, user.role, user.refreshTokenVersion, user);
@@ -94,12 +94,12 @@ export const userResolvers = {
       try {
         payload = verifyRefreshToken(args.refreshToken);
       } catch {
-        throw new AuthenticationError('Refresh token inválido o expirado');
+        throw new AuthenticationError('Invalid or expired refresh token');
       }
 
       const user = await UserModel.findById(payload.sub);
       if (!user || user.refreshTokenVersion !== payload.tokenVersion) {
-        throw new AuthenticationError('Refresh token inválido o expirado');
+        throw new AuthenticationError('Invalid or expired refresh token');
       }
 
       return buildAuthPayload(user.id, user.role, user.refreshTokenVersion, user);
@@ -107,7 +107,7 @@ export const userResolvers = {
 
     logout: async (_parent: unknown, _args: unknown, ctx: GraphQLContext) => {
       const currentUser = requireAuth(ctx.currentUser);
-      // Invalida todos los refresh tokens emitidos previamente.
+      // Incremented on logout/rotation to invalidate old refresh tokens.
       await UserModel.findByIdAndUpdate(currentUser.id, { $inc: { refreshTokenVersion: 1 } });
       return true;
     },
@@ -136,7 +136,7 @@ export const userResolvers = {
     ) => {
       const currentUser = requireAuth(ctx.currentUser);
       if (currentUser.role !== 'ADMIN') {
-        throw new ForbiddenError('Solo un ADMIN puede cambiar roles');
+        throw new ForbiddenError('Only an ADMIN can change roles');
       }
 
       const user = await UserModel.findByIdAndUpdate(
@@ -150,21 +150,33 @@ export const userResolvers = {
   },
 
   User: {
-    reviews: async (parent: { id: string }, args: { limit: number; offset: number }) => {
-      const { limit, offset } = clampPagination(args.limit, args.offset);
-      return ReviewModel.find({ author: parent.id })
-        .sort({ createdAt: -1 })
-        .skip(offset)
-        .limit(limit);
+    // Before: one Reviews query per resolved User (N+1 when listing
+    // `users { reviews }`). Now it's grouped into a single query via
+    // the DataLoader -- see src/graphql/loaders/index.ts.
+    reviews: async (
+      parent: { id: string },
+      args: { limit: number; offset: number },
+      ctx: GraphQLContext,
+    ) => {
+      return ctx.loaders.reviewsByAuthor.load({ id: parent.id, limit: args.limit, offset: args.offset });
     },
 
-    lists: async (parent: { id: string }) => {
-      return ListModel.find({ owner: parent.id }).sort({ createdAt: -1 });
+    lists: async (parent: { id: string }, _args: unknown, ctx: GraphQLContext) => {
+      return ctx.loaders.listsByOwner.load(parent.id);
     },
 
-    favoriteMovies: async (parent: { id: string }) => {
-      const user = await UserModel.findById(parent.id).populate('favoriteMovies');
-      return user?.favoriteMovies ?? [];
+    // `parent` already carries `favoriteMovies` as an array of ObjectId (not
+    // excluded by any `.select()`), so there's no need to hit Mongo again
+    // for the User -- just batch the lookup of each Movie.
+    favoriteMovies: async (
+      parent: { favoriteMovies: Array<{ toString(): string }> },
+      _args: unknown,
+      ctx: GraphQLContext,
+    ) => {
+      const movies = await Promise.all(
+        parent.favoriteMovies.map((id) => ctx.loaders.movieById.load(id.toString())),
+      );
+      return movies.filter((movie): movie is NonNullable<typeof movie> => movie !== null);
     },
   },
 };

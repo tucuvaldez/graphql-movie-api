@@ -2,7 +2,7 @@ import { gql } from 'graphql-tag';
 
 export const listTypeDefs = gql`
   """
-  Lista curada por un usuario (watchlist, favoritos, etc).
+  List curated by a user (watchlist, favorites, etc).
   """
   type List implements Node & Timestamped {
     id: ID!
@@ -37,12 +37,12 @@ export const listTypeDefs = gql`
     list(id: ID!): List
 
     """
-    Listas del usuario autenticado (públicas y privadas).
+    Lists belonging to the authenticated user (public and private).
     """
     myLists: [List!]!
 
     """
-    Listas públicas de cualquier usuario.
+    Public lists belonging to any user.
     """
     publicLists(userId: ID, limit: Int = 20, offset: Int = 0): ListPage!
   }

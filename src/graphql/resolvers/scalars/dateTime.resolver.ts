@@ -8,11 +8,11 @@ export const DateTimeScalar = new GraphQLScalarType({
     if (typeof value === 'string' || typeof value === 'number') {
       return new Date(value).toISOString();
     }
-    throw new TypeError('DateTime: valor no serializable');
+    throw new TypeError('DateTime: value is not serializable');
   },
   parseValue(value) {
     if (typeof value !== 'string' && typeof value !== 'number') {
-      throw new TypeError('DateTime: input inválido');
+      throw new TypeError('DateTime: invalid input');
     }
     return new Date(value);
   },

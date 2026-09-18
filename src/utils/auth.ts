@@ -1,13 +1,13 @@
 import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
-import type { UserRole } from '../models/User.model';
+import type { UserRole } from '../models/User.model.js';
 
 const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret-change-me';
 const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret-change-me';
 
-// jsonwebtoken tipa `expiresIn` como `number | StringValue` (un literal
-// restringido tipo "15m", "30d"), así que un `process.env.X` (string
-// genérico) no entra sin este cast. El valor sigue viniendo de env.
+// jsonwebtoken types `expiresIn` as `number | StringValue` (a restricted
+// literal like "15m", "30d"), so a `process.env.X` (generic string) doesn't
+// fit without this cast. The value still comes from env.
 const ACCESS_TOKEN_TTL = (process.env.JWT_ACCESS_TTL ?? '15m') as SignOptions['expiresIn'];
 const REFRESH_TOKEN_TTL = (process.env.JWT_REFRESH_TTL ?? '30d') as SignOptions['expiresIn'];
 

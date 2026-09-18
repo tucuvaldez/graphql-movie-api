@@ -1,6 +1,6 @@
 import { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from 'graphql';
-import { IUser, IMovie, IReview, IList } from '../models';
-import { GraphQLContext } from '../types/context';
+import { IUser, IMovie, IReview, IList } from '../models/index.js';
+import { GraphQLContext } from '../types/context.js';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
@@ -20,7 +20,7 @@ export type Scalars = {
   DateTime: { input: string; output: string; }
 };
 
-/** Payload de autenticación devuelto por register / login / refreshToken. */
+/** Authentication payload returned by register / login / refreshToken. */
 export type AuthPayload = {
   __typename?: 'AuthPayload';
   accessToken: Scalars['String']['output'];
@@ -66,7 +66,7 @@ export type CreateReviewInput = {
   rating: Scalars['Int']['input'];
 };
 
-/** Respuesta genérica para mutations de borrado. */
+/** Generic response for delete mutations. */
 export type DeletePayload = {
   __typename?: 'DeletePayload';
   id: Scalars['ID']['output'];
@@ -181,7 +181,7 @@ export type Mutation = {
   createList: List;
   /** Solo ADMIN / MODERATOR. */
   createMovie: Movie;
-  /** Requiere autenticación. Un usuario solo puede tener una review por película. */
+  /** Requires authentication. A user can only have one review per movie. */
   createReview: Review;
   deleteList: DeletePayload;
   deleteMovie: DeletePayload;
@@ -301,7 +301,7 @@ export type Node = {
   id: Scalars['ID']['output'];
 };
 
-/** Info estándar de paginación estilo cursor (Relay-like, simplificada). */
+/** Standard cursor-style pagination info (Relay-like, simplified). */
 export type PageInfo = {
   __typename?: 'PageInfo';
   hasNextPage: Scalars['Boolean']['output'];
@@ -313,13 +313,13 @@ export type Query = {
   __typename?: 'Query';
   _health: Scalars['String']['output'];
   list?: Maybe<List>;
-  /** Usuario autenticado según el JWT presente en el request. null si no hay sesión. */
+  /** Authenticated user according to the JWT present on the request. null if there's no session. */
   me?: Maybe<User>;
   movie?: Maybe<Movie>;
   movies: MoviePage;
-  /** Listas del usuario autenticado (públicas y privadas). */
+  /** Lists belonging to the authenticated user (public and private). */
   myLists: Array<List>;
-  /** Listas públicas de cualquier usuario. */
+  /** Public lists belonging to any user. */
   publicLists: ListPage;
   review?: Maybe<Review>;
   reviewsByMovie: ReviewPage;

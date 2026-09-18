@@ -2,7 +2,7 @@ import { gql } from 'graphql-tag';
 
 export const reviewTypeDefs = gql`
   """
-  Rating en escala 1-10.
+  Rating on a 1-10 scale.
   """
   type Review implements Node & Timestamped {
     id: ID!
@@ -41,7 +41,7 @@ export const reviewTypeDefs = gql`
 
   extend type Mutation {
     """
-    Requiere autenticación. Un usuario solo puede tener una review por película.
+    Requires authentication. A user can only have one review per movie.
     """
     createReview(input: CreateReviewInput!): Review!
     updateReview(id: ID!, input: UpdateReviewInput!): Review!
@@ -49,5 +49,12 @@ export const reviewTypeDefs = gql`
 
     likeReview(id: ID!): Review!
     unlikeReview(id: ID!): Review!
+  }
+
+  extend type Subscription {
+    """
+    Emitted every time a new review is created for the given movie.
+    """
+    reviewAdded(movieId: ID!): Review!
   }
 `;

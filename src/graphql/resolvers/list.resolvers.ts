@@ -1,7 +1,7 @@
-import type { GraphQLContext } from '../../types/context';
-import { ListModel, MovieModel, UserModel, type IList } from '../../models';
-import { ForbiddenError, NotFoundError, requireAuth } from '../../utils/errors';
-import { buildPageInfo, clampPagination } from '../../utils/pagination';
+import type { GraphQLContext } from '../../types/context.js';
+import { ListModel, MovieModel, type IList } from '../../models/index.js';
+import { ForbiddenError, NotFoundError, requireAuth } from '../../utils/errors.js';
+import { buildPageInfo, clampPagination } from '../../utils/pagination.js';
 
 interface CreateListInput {
   name: string;
@@ -18,7 +18,7 @@ interface UpdateListInput {
 function assertOwner(list: IList, ctx: GraphQLContext) {
   const currentUser = requireAuth(ctx.currentUser);
   if (list.owner.toString() !== currentUser.id) {
-    throw new ForbiddenError('Solo el dueño de la lista puede modificarla');
+    throw new ForbiddenError('Only the list owner can modify it');
   }
   return currentUser;
 }
@@ -31,7 +31,7 @@ export const listResolvers = {
       if (!list.isPublic) {
         const currentUser = requireAuth(ctx.currentUser);
         if (list.owner.toString() !== currentUser.id) {
-          throw new ForbiddenError('Esta lista es privada');
+          throw new ForbiddenError('This list is private');
         }
       }
       return list;
@@ -140,13 +140,25 @@ export const listResolvers = {
   },
 
   List: {
-    owner: async (parent: IList) => UserModel.findById(parent.owner),
+    // Before: one findById(owner) per resolved List -- now all requested
+    // owners are grouped into a single query in the same tick (see
+    // src/graphql/loaders/index.ts). Shares a loader with Review.author.
+    owner: async (parent: IList, _args: unknown, ctx: GraphQLContext) =>
+      ctx.loaders.userById.load(parent.owner.toString()),
 
-    movies: async (parent: { id: string }, args: { limit: number; offset: number }) => {
+    // Before: a findById(list) + extra populate per resolved List, even
+    // though `parent` already had the array of movie ids -- a completely
+    // unnecessary extra query. Now the array is paginated in memory and
+    // the Movie lookups are batched (shares a loader with Review.movie).
+    movies: async (
+      parent: IList,
+      args: { limit: number; offset: number },
+      ctx: GraphQLContext,
+    ) => {
       const { limit, offset } = clampPagination(args.limit, args.offset);
-      const list = await ListModel.findById(parent.id)
-        .populate({ path: 'movies', options: { skip: offset, limit } });
-      return list?.movies ?? [];
+      const pageIds = parent.movies.slice(offset, offset + limit);
+      const movies = await Promise.all(pageIds.map((id) => ctx.loaders.movieById.load(id.toString())));
+      return movies.filter((movie): movie is NonNullable<typeof movie> => movie !== null);
     },
 
     movieCount: (parent: IList) => parent.movies.length,

@@ -1,4 +1,5 @@
-import type { IUser, UserRole } from '../models/User.model';
+import type { IUser, UserRole } from '../models/User.model.js';
+import type { AppLoaders } from '../graphql/loaders/index.js';
 
 export type Genre =
   | 'ACTION'
@@ -18,9 +19,9 @@ export type Genre =
   | 'WESTERN';
 
 /**
- * Usuario autenticado extraído y verificado desde el JWT en el request.
- * Es un subconjunto liviano de IUser — no pegamos a Mongo en cada resolver
- * solo para saber "quién está pidiendo esto".
+ * Authenticated user extracted and verified from the JWT on the request.
+ * It's a lightweight subset of IUser -- we don't hit Mongo on every resolver
+ * just to know "who is asking for this".
  */
 export interface AuthUser {
   id: string;
@@ -28,15 +29,17 @@ export interface AuthUser {
 }
 
 /**
- * Contexto de Apollo Server. `currentUser` es null cuando no hay
- * Authorization header válido — los resolvers deciden si eso es un error
- * (ver utils/errors.ts) o un caso válido (ej: `movies` es pública).
+ * Apollo Server context. `currentUser` is null when there's no valid
+ * Authorization header -- resolvers decide whether that's an error
+ * (see utils/errors.ts) or a valid case (e.g. `movies` is public).
+ *
+ * `loaders` is created from scratch on every request (see context() in
+ * src/index.ts) to avoid N+1 in nested fields -- see
+ * src/graphql/loaders/index.ts.
  */
 export interface GraphQLContext {
   currentUser: AuthUser | null;
-  // Placeholder para Fase 2.1: DataLoaders por entidad para evitar N+1
-  // en campos como Movie.reviews, User.lists, etc.
-  loaders?: Record<string, unknown>;
+  loaders: AppLoaders;
 }
 
 export type { IUser };

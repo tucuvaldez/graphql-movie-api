@@ -1,8 +1,9 @@
 import type { FilterQuery } from 'mongoose';
-import type { GraphQLContext, Genre } from '../../types/context';
-import { MovieModel, ReviewModel, type ICastMember, type IMovie } from '../../models';
-import { ForbiddenError, NotFoundError, requireAuth } from '../../utils/errors';
-import { buildPageInfo, clampPagination } from '../../utils/pagination';
+import type { GraphQLContext, Genre } from '../../types/context.js';
+import { MovieModel, ReviewModel, type ICastMember, type IMovie } from '../../models/index.js';
+import { ForbiddenError, NotFoundError, requireAuth } from '../../utils/errors.js';
+import { buildPageInfo, clampPagination } from '../../utils/pagination.js';
+import { pubsub, TOPICS } from '../pubsub.js';
 
 interface MovieFilterInput {
   genre?: Genre | null;
@@ -34,14 +35,14 @@ type UpdateMovieInput = Partial<CreateMovieInput>;
 const SORT_FIELD_MAP: Record<MovieSortInput['field'], string> = {
   TITLE: 'title',
   RELEASE_DATE: 'releaseDate',
-  AVERAGE_RATING: 'ratingSum', // aproximación; ver nota en README sobre Fase 2.1 (rating denormalizado real)
+  AVERAGE_RATING: 'ratingSum', // approximation; see README note on Phase 2.1 (real denormalized rating)
   CREATED_AT: 'createdAt',
 };
 
 function assertCanManageCatalog(ctx: GraphQLContext) {
   const currentUser = requireAuth(ctx.currentUser);
   if (currentUser.role !== 'ADMIN' && currentUser.role !== 'MODERATOR') {
-    throw new ForbiddenError('Se requiere rol ADMIN o MODERATOR');
+    throw new ForbiddenError('ADMIN or MODERATOR role required');
   }
   return currentUser;
 }
@@ -129,12 +130,22 @@ export const movieResolvers = {
 
     reviewCount: (parent: IMovie) => parent.ratingCount,
 
-    reviews: async (parent: { id: string }, args: { limit: number; offset: number }) => {
-      const { limit, offset } = clampPagination(args.limit, args.offset);
-      return ReviewModel.find({ movie: parent.id })
-        .sort({ createdAt: -1 })
-        .skip(offset)
-        .limit(limit);
+    // Before: one Reviews query per resolved Movie (N+1 when listing
+    // `movies { reviews }`). Now it's grouped into a single query -- see
+    // src/graphql/loaders/index.ts.
+    reviews: async (
+      parent: { id: string },
+      args: { limit: number; offset: number },
+      ctx: GraphQLContext,
+    ) => {
+      return ctx.loaders.reviewsByMovie.load({ id: parent.id, limit: args.limit, offset: args.offset });
+    },
+  },
+
+  Subscription: {
+    movieRatingUpdated: {
+      subscribe: (_parent: unknown, args: { movieId: string }) =>
+        pubsub.asyncIterableIterator(TOPICS.movieRatingUpdated(args.movieId)),
     },
   },
 };

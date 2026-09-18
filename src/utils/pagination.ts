@@ -13,8 +13,8 @@ export function buildPageInfo(limit: number, offset: number, totalCount: number)
 }
 
 /**
- * Clampa limit/offset a rangos razonables para evitar queries abusivas
- * (ej: limit: 999999 desde un cliente malicioso).
+ * Clamps limit/offset to reasonable ranges to prevent abusive queries
+ * (e.g. limit: 999999 from a malicious client).
  */
 export function clampPagination(limit: number, offset: number, maxLimit = 100) {
   return {

@@ -1,12 +1,13 @@
-import type { GraphQLContext } from '../../types/context';
-import { ReviewModel, MovieModel, UserModel, type IReview } from '../../models';
+import type { GraphQLContext } from '../../types/context.js';
+import { ReviewModel, MovieModel, type IReview } from '../../models/index.js';
 import {
   ForbiddenError,
   NotFoundError,
   ValidationError,
   requireAuth,
-} from '../../utils/errors';
-import { buildPageInfo, clampPagination } from '../../utils/pagination';
+} from '../../utils/errors.js';
+import { buildPageInfo, clampPagination } from '../../utils/pagination.js';
+import { pubsub, TOPICS } from '../pubsub.js';
 
 interface CreateReviewInput {
   movieId: string;
@@ -21,7 +22,7 @@ interface UpdateReviewInput {
 
 function assertValidRating(rating: number) {
   if (!Number.isInteger(rating) || rating < 1 || rating > 10) {
-    throw new ValidationError('rating debe ser un entero entre 1 y 10');
+    throw new ValidationError('rating must be an integer between 1 and 10');
   }
 }
 
@@ -30,7 +31,7 @@ async function assertOwnerOrModerator(review: IReview, ctx: GraphQLContext) {
   const isOwner = review.author.toString() === currentUser.id;
   const isModerator = currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR';
   if (!isOwner && !isModerator) {
-    throw new ForbiddenError('Solo el autor o un moderador pueden modificar esta review');
+    throw new ForbiddenError('Only the author or a moderator can modify this review');
   }
   return currentUser;
 }
@@ -90,14 +91,23 @@ export const reviewResolvers = {
         });
       } catch (err: unknown) {
         if (isDuplicateKeyError(err)) {
-          throw new ValidationError('Ya dejaste una review para esta película');
+          throw new ValidationError('You already left a review for this movie');
         }
         throw err;
       }
 
-      await MovieModel.findByIdAndUpdate(args.input.movieId, {
-        $inc: { ratingSum: args.input.rating, ratingCount: 1 },
-      });
+      const updatedMovie = await MovieModel.findByIdAndUpdate(
+        args.input.movieId,
+        { $inc: { ratingSum: args.input.rating, ratingCount: 1 } },
+        { new: true },
+      );
+
+      await pubsub.publish(TOPICS.reviewAdded(args.input.movieId), { reviewAdded: review });
+      if (updatedMovie) {
+        await pubsub.publish(TOPICS.movieRatingUpdated(args.input.movieId), {
+          movieRatingUpdated: updatedMovie,
+        });
+      }
 
       return review;
     },
@@ -123,9 +133,16 @@ export const reviewResolvers = {
       await review.save();
 
       if (args.input.rating !== undefined && args.input.rating !== previousRating) {
-        await MovieModel.findByIdAndUpdate(review.movie, {
-          $inc: { ratingSum: review.rating - previousRating },
-        });
+        const updatedMovie = await MovieModel.findByIdAndUpdate(
+          review.movie,
+          { $inc: { ratingSum: review.rating - previousRating } },
+          { new: true },
+        );
+        if (updatedMovie) {
+          await pubsub.publish(TOPICS.movieRatingUpdated(review.movie.toString()), {
+            movieRatingUpdated: updatedMovie,
+          });
+        }
       }
 
       return review;
@@ -137,9 +154,16 @@ export const reviewResolvers = {
       await assertOwnerOrModerator(review, ctx);
 
       await ReviewModel.findByIdAndDelete(args.id);
-      await MovieModel.findByIdAndUpdate(review.movie, {
-        $inc: { ratingSum: -review.rating, ratingCount: -1 },
-      });
+      const updatedMovie = await MovieModel.findByIdAndUpdate(
+        review.movie,
+        { $inc: { ratingSum: -review.rating, ratingCount: -1 } },
+        { new: true },
+      );
+      if (updatedMovie) {
+        await pubsub.publish(TOPICS.movieRatingUpdated(review.movie.toString()), {
+          movieRatingUpdated: updatedMovie,
+        });
+      }
 
       return { success: true, id: args.id };
     },
@@ -168,9 +192,23 @@ export const reviewResolvers = {
   },
 
   Review: {
-    movie: async (parent: IReview) => MovieModel.findById(parent.movie),
-    author: async (parent: IReview) => UserModel.findById(parent.author),
+    // Before: one findById per resolved Review, both for `movie` and
+    // `author` (classic N+1 when listing reviews). Now all requested ids
+    // are batched in the same tick -- see src/graphql/loaders/index.ts.
+    // Shares a loader with List.owner (userById) and List.movies
+    // (movieById).
+    movie: async (parent: IReview, _args: unknown, ctx: GraphQLContext) =>
+      ctx.loaders.movieById.load(parent.movie.toString()),
+    author: async (parent: IReview, _args: unknown, ctx: GraphQLContext) =>
+      ctx.loaders.userById.load(parent.author.toString()),
     likeCount: (parent: IReview) => parent.likedBy.length,
+  },
+
+  Subscription: {
+    reviewAdded: {
+      subscribe: (_parent: unknown, args: { movieId: string }) =>
+        pubsub.asyncIterableIterator(TOPICS.reviewAdded(args.movieId)),
+    },
   },
 };
 

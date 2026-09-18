@@ -24,13 +24,10 @@ const userSchema = new Schema<IUser>(
     bio: { type: String, default: null, maxlength: 500 },
     role: { type: String, enum: ['USER', 'MODERATOR', 'ADMIN'], default: 'USER' },
     favoriteMovies: [{ type: Schema.Types.ObjectId, ref: 'Movie', default: [] }],
-    // Se incrementa en logout/rotación para invalidar refresh tokens viejos.
+    // Incremented on logout/rotation to invalidate old refresh tokens.
     refreshTokenVersion: { type: Number, default: 0 },
   },
   { timestamps: true },
 );
-
-userSchema.index({ email: 1 }, { unique: true });
-userSchema.index({ username: 1 }, { unique: true });
 
 export const UserModel = model<IUser>('User', userSchema);

@@ -115,10 +115,18 @@ export const movieTypeDefs = gql`
 
   extend type Mutation {
     """
-    Solo ADMIN / MODERATOR.
+    ADMIN / MODERATOR only.
     """
     createMovie(input: CreateMovieInput!): Movie!
     updateMovie(id: ID!, input: UpdateMovieInput!): Movie!
     deleteMovie(id: ID!): DeletePayload!
+  }
+
+  extend type Subscription {
+    """
+    Emitted every time a movie's average rating changes
+    (new review, edited review, or deleted).
+    """
+    movieRatingUpdated(movieId: ID!): Movie!
   }
 `;
