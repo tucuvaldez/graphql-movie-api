@@ -1,4 +1,5 @@
 import { DateTimeScalar } from './scalars/dateTime.resolver.js';
+import { EmailAddressScalar } from './scalars/email.resolver.js';
 import { userResolvers } from './user.resolvers.js';
 import { movieResolvers } from './movie.resolvers.js';
 import { reviewResolvers } from './review.resolvers.js';
@@ -6,6 +7,7 @@ import { listResolvers } from './list.resolvers.js';
 
 const resolvers: any = {
   DateTime: DateTimeScalar,
+  EmailAddress: EmailAddressScalar,
 
   Query: {
     _health: () => 'ok',

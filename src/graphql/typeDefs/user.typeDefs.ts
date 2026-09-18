@@ -10,7 +10,7 @@ export const userTypeDefs = gql`
   type User implements Node & Timestamped {
     id: ID!
     username: String!
-    email: String!
+    email: EmailAddress!
     avatarUrl: String
     bio: String
     role: UserRole!
@@ -37,12 +37,12 @@ export const userTypeDefs = gql`
 
   input RegisterInput {
     username: String!
-    email: String!
+    email: EmailAddress!
     password: String!
   }
 
   input LoginInput {
-    email: String!
+    email: EmailAddress!
     password: String!
   }
 

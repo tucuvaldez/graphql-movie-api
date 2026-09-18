@@ -6,6 +6,7 @@ import { gql } from 'graphql-tag';
  */
 export const sharedTypeDefs = gql`
   scalar DateTime
+  scalar EmailAddress
 
   """
   Standard cursor-style pagination info (Relay-like, simplified).
