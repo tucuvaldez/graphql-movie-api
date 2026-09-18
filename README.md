@@ -79,6 +79,14 @@ npm run dev          # tsx watch mode, http://localhost:4000/graphql
 
 In development, Apollo Sandbox is available at that same URL for exploring the schema and running queries interactively. Subscriptions run over WebSocket on the same path (`ws://localhost:4000/graphql`).
 
+### Seed sample data (optional)
+
+```bash
+npm run seed
+```
+
+Creates one `ADMIN` user (`admin@example.com` / `AdminPass123!`) and a handful of sample movies, if they don't already exist. Useful for trying out the API without registering and manually promoting a user first — see below.
+
 ### Build & run in production mode
 
 ```bash
@@ -113,6 +121,68 @@ npm run test:watch
 ```
 
 Tests run against `mongodb-memory-server`, an in-memory MongoDB instance spun up once for the whole suite — no Docker or external database required.
+
+## Trying it out in Apollo Sandbox
+
+With MongoDB and the API running (`npm run docker:up` + `npm run dev`), open `http://localhost:4000/graphql` in a browser — Apollo Sandbox loads automatically and lets you explore the schema and run operations without any separate client.
+
+1. **Run `npm run seed`** first (see above) to get an `ADMIN` user and some sample movies, or register your own user with the mutation below.
+
+2. **Register** (or use the seeded admin — skip to step 3 with `admin@example.com` / `AdminPass123!`):
+
+   ```graphql
+   mutation {
+     register(input: { username: "reviewer", email: "reviewer@example.com", password: "password123" }) {
+       accessToken
+       user { id username role }
+     }
+   }
+   ```
+
+3. **Authenticate.** Copy the `accessToken` from the response, then in Sandbox click **Headers** at the bottom-left and add:
+
+   ```json
+   { "Authorization": "Bearer <paste the accessToken here>" }
+   ```
+
+4. **Confirm the token works:**
+
+   ```graphql
+   query { me { id username role } }
+   ```
+
+5. **Explore the catalog** (public, no auth needed):
+
+   ```graphql
+   query {
+     movies(limit: 5) {
+       items { id title averageRating reviewCount }
+       pageInfo { totalCount }
+     }
+   }
+   ```
+
+6. **Try an ADMIN/MODERATOR-only mutation** — this needs the seeded admin's token (or a user promoted via `setUserRole`, which itself requires an existing ADMIN):
+
+   ```graphql
+   mutation {
+     createMovie(input: { title: "Test Screening", genres: [DRAMA] }) {
+       id
+       title
+       averageRating
+     }
+   }
+   ```
+
+7. **Leave a review and watch a subscription fire.** In a second Sandbox tab, start listening:
+
+   ```graphql
+   subscription { reviewAdded(movieId: "<a movie id from step 5>") { id rating comment } }
+   ```
+
+   Then, back in the first tab (still authenticated), run `createReview` for that same movie — the subscription tab should receive the event immediately.
+
+Regular fields validate at the schema level too: registering with `email: "not-an-email"` is rejected before it ever reaches a resolver, since `email` is a custom `EmailAddress` scalar rather than a plain `String`.
 
 ## Known limitations / next steps
 

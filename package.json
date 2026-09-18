@@ -12,7 +12,8 @@
     "docker:build": "docker build -t graphql-movie-api .",
     "docker:up": "docker-compose up",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed": "tsx src/scripts/seed.ts"
   },
   "keywords": [
     "graphql",
