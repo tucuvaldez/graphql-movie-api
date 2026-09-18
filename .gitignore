@@ -30,3 +30,6 @@ coverage/
 
 # Misc
 .cache/
+
+# Scratch
+_to_delete/
