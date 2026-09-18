@@ -1,0 +1,39 @@
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: graphql-movie-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - graphql-network
+
+  api:
+    build: .
+    container_name: graphql-movie-api
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      MONGODB_URI: mongodb://admin:password@mongodb:27017/movies?authSource=admin
+      JWT_SECRET: dev-secret-key-change-in-prod
+    depends_on:
+      - mongodb
+    networks:
+      - graphql-network
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+volumes:
+  mongodb_data:
+
+networks:
+  graphql-network:
+    driver: bridge
