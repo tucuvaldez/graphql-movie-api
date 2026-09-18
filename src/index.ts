@@ -10,11 +10,12 @@ import { expressMiddleware } from '@as-integrations/express4';
 import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
 import depthLimit from 'graphql-depth-limit';
 import {
-  createComplexityRule,
+  getComplexity,
   simpleEstimator,
   fieldExtensionsEstimator,
   type ComplexityEstimator,
 } from 'graphql-query-complexity';
+import { GraphQLError } from 'graphql';
 import { WebSocketServer } from 'ws';
 import { useServer } from 'graphql-ws/use/ws';
 
@@ -160,12 +161,25 @@ async function startServer() {
   const MAX_QUERY_DEPTH = Number(process.env.GRAPHQL_MAX_DEPTH) || 8;
   const MAX_QUERY_COMPLEXITY = Number(process.env.GRAPHQL_MAX_COMPLEXITY) || 1000;
 
-  const validationRules = [
-    depthLimit(MAX_QUERY_DEPTH),
-    createComplexityRule({
-      maximumComplexity: MAX_QUERY_COMPLEXITY,
-      estimators: [fieldExtensionsEstimator(), paginationAwareEstimator(), simpleEstimator({ defaultComplexity: 1 })],
-    }),
+  // graphql-depth-limit is a plain validation rule -- it only looks at the
+  // query's AST shape, so it works fine here. graphql-query-complexity is
+  // different: createComplexityRule() builds a rule that re-implements its
+  // own variable coercion internally, and Apollo Server builds
+  // `validationRules` once at startup, before any request (and its
+  // variables) exists. A complexity rule built that way always validates
+  // against empty variables, so it rejected every operation that declares
+  // required variables (`$input`, `$refreshToken`, ...) with a spurious
+  // "Variable ... was not provided" error -- caught by the e2e smoke test,
+  // which hits the real server the way an actual client does instead of
+  // calling resolvers in-process. The fix: keep depth limiting as a
+  // validation rule, but run the complexity check from a plugin hook
+  // (below) that receives the actual per-request variables.
+  const validationRules = [depthLimit(MAX_QUERY_DEPTH)];
+
+  const complexityEstimators = [
+    fieldExtensionsEstimator(),
+    paginationAwareEstimator(),
+    simpleEstimator({ defaultComplexity: 1 }),
   ];
 
   // Explicit HTTP server (instead of app.listen directly) so we can
@@ -209,6 +223,32 @@ async function startServer() {
           return {
             async drainServer() {
               await serverCleanup.dispose();
+            },
+          };
+        },
+      },
+      // Query cost limiting (see the `complexityEstimators` comment above
+      // for why this lives here instead of in `validationRules`).
+      // didResolveOperation runs once per request, after parsing/validation,
+      // with the real `request.variables` -- exactly what
+      // graphql-query-complexity's variable coercion needs.
+      {
+        async requestDidStart() {
+          return {
+            async didResolveOperation(requestContext) {
+              const complexity = getComplexity({
+                schema: requestContext.schema,
+                query: requestContext.document,
+                operationName: requestContext.operationName ?? undefined,
+                variables: requestContext.request.variables,
+                estimators: complexityEstimators,
+              });
+              if (complexity > MAX_QUERY_COMPLEXITY) {
+                throw new GraphQLError(
+                  `Query is too complex: ${complexity}. Maximum allowed complexity: ${MAX_QUERY_COMPLEXITY}`,
+                  { extensions: { code: 'QUERY_TOO_COMPLEX' } },
+                );
+              }
             },
           };
         },

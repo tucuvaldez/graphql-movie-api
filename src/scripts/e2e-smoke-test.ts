@@ -108,8 +108,15 @@ async function main() {
     `mutation($input: RegisterInput!) { register(input: $input) { accessToken } }`,
     { input: { username: `bad_${stamp}`, email: 'not-an-email', password: 'password123' } },
   );
-  if (badEmailRes.errors) ok('EmailAddress scalar rejects a malformed email');
-  else fail('expected EmailAddress scalar to reject a malformed email', badEmailRes);
+  // Check the actual error, not just that the request failed -- an
+  // unrelated server bug once made *every* variable-using request error
+  // out, which made this check a false positive (it never actually
+  // exercised the scalar's own validation).
+  if (badEmailRes.errors?.some((e) => /EmailAddress/i.test(e.message))) {
+    ok('EmailAddress scalar rejects a malformed email');
+  } else {
+    fail('expected EmailAddress scalar to reject a malformed email', badEmailRes);
+  }
 
   console.log('\n2. Roles: catalog mutations are ADMIN/MODERATOR-only');
 
